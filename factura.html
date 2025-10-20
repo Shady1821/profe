@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Generador de Informe de Traslado</title>
+  <style>
+    body {
+      font-family: "Inter", system-ui, Arial;
+      background: #f0f2f5;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 30px;
+    }
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 700px;
+    }
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      font-size: 22px;
+      color: #333;
+    }
+    form {
+      display: grid;
+      gap: 12px;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: block;
+      color: #222;
+    }
+    input[type="text"], input[type="number"], input[type="date"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #0078ff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #005fcb; }
+    .results {
+      background: #f9fbff;
+      border: 1px solid #d9e3f0;
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin-top: 10px;
+    }
+    .result-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #eef2f8;
+    }
+    .result-line:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Generador de Informe de Traslado</h1>
+    <form id="calcForm" onsubmit="return false;">
+      <div>
+        <label for="fecha">Fecha</label>
+        <input type="date" id="fecha" />
+      </div>
+      <div>
+        <label for="origen">Origen</label>
+        <input type="text" id="origen" placeholder="Ciudad o punto de partida" />
+      </div>
+      <div>
+        <label for="destino">Destino</label>
+        <input type="text" id="destino" placeholder="Ciudad o destino final" />
+      </div>
+      <div>
+        <label for="valorKm">Valor por KM</label>
+        <input type="number" step="any" id="valorKm" value="0" />
+      </div>
+      <div>
+        <label for="kmRecorridos">KM recorridos</label>
+        <input type="number" step="any" id="kmRecorridos" value="0" />
+      </div>
+      <div>
+        <label for="valorMovida">Valor movida</label>
+        <input type="number" step="any" id="valorMovida" value="0" />
+      </div>
+      <div>
+        <label for="valorSeguro">Valor seguro</label>
+        <input type="number" step="any" id="valorSeguro" value="0" />
+      </div>
+      <div>
+        <label for="iva">IVA (%)</label>
+        <input type="number" step="any" id="iva" value="21" />
+      </div>
+
+      <button type="button" id="calcBtn">Calcular y mostrar resultados</button>
+      <button type="button" id="pdfBtn">Generar PDF</button>
+
+      <div class="results" id="results">
+        <div class="result-line"><span>Importe Neto:</span><span id="importeNeto">—</span></div>
+        <div class="result-line"><span>Importe Total:</span><span id="importeTotal">—</span></div>
+      </div>
+    </form>
+  </div>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    // --- FUNCIONES DE CÁLCULO ---
+    function calcularImportes() {
+      const valorKm = parseFloat(document.getElementById("valorKm").value) || 0;
+      const kmRecorridos = parseFloat(document.getElementById("kmRecorridos").value) || 0;
+      const valorMovida = parseFloat(document.getElementById("valorMovida").value) || 0;
+      const valorSeguro = parseFloat(document.getElementById("valorSeguro").value) || 0;
+      const ivaPorc = parseFloat(document.getElementById("iva").value) || 0;
+
+      const importeNeto = (valorKm * kmRecorridos) + valorMovida + valorSeguro;
+      const importeTotal = importeNeto * (1 + ivaPorc / 100);
+
+      return { importeNeto, importeTotal };
+    }
+
+    function actualizarResultados() {
+      const { importeNeto, importeTotal } = calcularImportes();
+      document.getElementById("importeNeto").textContent = "$ " + importeNeto.toFixed(2);
+      document.getElementById("importeTotal").textContent = "$ " + importeTotal.toFixed(2);
+    }
+
+    document.getElementById("calcBtn").addEventListener("click", actualizarResultados);
+
+    // --- GENERAR PDF ---
+    document.getElementById("pdfBtn").addEventListener("click", () => {
+      const fecha = document.getElementById("fecha").value;
+      const origen = document.getElementById("origen").value.trim();
+      const destino = document.getElementById("destino").value.trim();
+      const { importeNeto, importeTotal } = calcularImportes();
+
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
+
+      // --- CABECERA ---
+      const logoURL = "https://upload.wikimedia.org/wikipedia/commons/a/ab/Logo_TV_2015.png"; // <-- reemplazá por tu logo
+      doc.addImage(logoURL, "PNG", 20, 10, 25, 25);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("TRANSPORTE LOS 4 ALBERTO", centerX, 25, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "italic");
+      doc.text("Informe de traslado", centerX, 33, { align: "center" });
+
+      // Línea bajo cabecera
+      doc.setLineWidth(0.4);
+      doc.line(20, 38, pageWidth - 20, 38);
+
+      // --- CONTENIDO CENTRADO ---
+      let y = 60;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(13);
+      doc.text(`Fecha: ${fecha || "-"}`, centerX, y, { align: "center" }); y += 8;
+      doc.text(`Origen: ${origen || "-"}`, centerX, y, { align: "center" }); y += 8;
+      doc.text(`Destino: ${destino || "-"}`, centerX, y, { align: "center" }); y += 12;
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`Importe Neto: $ ${importeNeto.toFixed(2)}`, centerX, y, { align: "center" }); y += 8;
+      doc.text(`Importe Total (con IVA): $ ${importeTotal.toFixed(2)}`, centerX, y, { align: "center" }); y += 8;
+
+      // --- PIE DE PÁGINA ---
+      const footerY = 280;
+      doc.setLineWidth(0.3);
+      doc.line(20, footerY - 4, pageWidth - 20, footerY - 4);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      const now = new Date().toLocaleString();
+      doc.text("Documento generado automáticamente", 20, footerY);
+      doc.text(`Fecha y hora: ${now}`, pageWidth - 20, footerY, { align: "right" });
+
+      // --- GUARDAR PDF ---
+      const nombreArchivo = `informe_${fecha || "sin_fecha"}.pdf`;
+      doc.save(nombreArchivo);
+    });
+  </script>
+</body>
+</html>
